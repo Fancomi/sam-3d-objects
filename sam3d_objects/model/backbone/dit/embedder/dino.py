@@ -32,13 +32,33 @@ class Dino(torch.nn.Module):
             if backbone_kwargs:
                 logger.info(f"DINO backbone kwargs: {backbone_kwargs}")
             
-            self.backbone = torch.hub.load(
-                repo_or_dir=repo_or_dir,
-                model=dino_model,
-                source=source,
-                verbose=False,
-                **backbone_kwargs,
-            )
+            import os
+            from unittest.mock import patch
+
+            local_repo = "checkpoints/facebookresearch-dinov2"
+            
+            def load_local_or_remote(url, **kwargs):
+                if os.path.exists(local_repo):
+                    filename = url.split('/')[-1]
+                    local_ckpt = os.path.join(local_repo, "checkpoints", filename)
+                    if os.path.exists(local_ckpt):
+                        logger.info(f"Loading DINO checkpoint from local file: {local_ckpt}")
+                        return torch.load(local_ckpt, map_location="cpu")
+                return torch.hub.load_state_dict_from_url(url, **kwargs)
+
+            if os.path.exists(local_repo):
+                logger.info(f"Using local DINO repo: {local_repo}")
+                repo_or_dir = local_repo
+                source = "local"
+            
+            with patch("torch.hub.load_state_dict_from_url", side_effect=load_local_or_remote):
+                self.backbone = torch.hub.load(
+                    repo_or_dir=repo_or_dir,
+                    model=dino_model,
+                    source=source,
+                    verbose=False,
+                    **backbone_kwargs,
+                )
             
             # Log model properties after loading
             logger.info(f"Loaded DINO model - type: {type(self.backbone)}, "

@@ -372,8 +372,30 @@ def load_masks(folder_path, indices_list=None, extension=".png"):
 
     for idx in indices_list:
         mask_path = os.path.join(folder_path, f"{idx}{extension}")
-        assert os.path.exists(mask_path), f"Mask path {mask_path} does not exist"
-        mask = load_mask(mask_path)
+        if not os.path.exists(mask_path):
+            # 如果mask文件不存在,尝试从原图的alpha通道提取mask
+            image_path = os.path.join(folder_path, f"image{extension}")
+            if not os.path.exists(image_path):
+                # 尝试其他常见的图像文件名
+                for img_name in ["test.png", f"{idx}.jpg", f"{idx}.jpeg"]:
+                    alt_path = os.path.join(folder_path, img_name)
+                    if os.path.exists(alt_path):
+                        image_path = alt_path
+                        break
+            
+            if os.path.exists(image_path):
+                image = load_image(image_path)
+                # 检查图像是否有alpha通道
+                if image.ndim == 3 and image.shape[2] == 4:
+                    # 使用alpha通道作为mask
+                    mask = image[..., 3] > 0
+                else:
+                    # 如果没有alpha通道,创建全为True的mask(使用整个图像)
+                    mask = np.ones(image.shape[:2], dtype=bool)
+            else:
+                raise AssertionError(f"Mask path {mask_path} does not exist and no source image found to extract alpha channel")
+        else:
+            mask = load_mask(mask_path)
         masks.append(mask)
     return masks
 
@@ -387,15 +409,17 @@ def display_image(image, masks=None):
     fig, axes = plt.subplots(*grid)
     if masks is not None:
         mask_colors = sns.color_palette("husl", len(masks))
-        black_image = np.zeros_like(image[..., :3], dtype=float)  # background
+        # 使用RGB通道(前3个通道)
+        image_rgb = image[..., :3] if image.shape[-1] >= 3 else image
+        black_image = np.zeros_like(image_rgb, dtype=float)  # background
         mask_display = np.copy(black_image)
-        mask_union = np.zeros_like(image[..., :3])
+        mask_union = np.zeros_like(image_rgb)
         for i, mask in enumerate(masks):
             mask_display[mask] = mask_colors[i]
             mask_union |= mask[..., None] if mask.ndim == 2 else mask
         imshow(black_image, axes[0, 1])
         imshow(mask_display, axes[1, 0])
-        imshow(image * mask_union, axes[1, 1])
+        imshow(image_rgb * mask_union, axes[1, 1])
 
     image_axe = axes if masks is None else axes[0, 0]
     imshow(image, image_axe)

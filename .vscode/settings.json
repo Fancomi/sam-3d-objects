@@ -1,0 +1,15 @@
+{
+    "python.defaultInterpreterPath": "/home/baidu/envs/sam3do/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.useEnvironmentsExtension": true,
+    "python-envs.pythonProjects": [],
+    "terminal.integrated.shellArgs.linux": [
+        "-c",
+        "source /home/baidu/envs/sam3do/bin/activate && exec bash",
+    ],
+    "terminal.integrated.env.linux": {
+        "http_proxy": "http://127.0.0.1:7890",
+        "https_proxy": "http://127.0.0.1:7890",
+        "all_proxy": "socks5://127.0.0.1:7890"
+    }
+}
